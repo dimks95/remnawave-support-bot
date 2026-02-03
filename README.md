@@ -101,4 +101,4 @@ python -m bot
 
 Если задан `REDIS_URL`, состояние FSM хранится в Redis и сохраняется при рестартах бота. Если не задан — используется память (при рестарте состояния сбрасываются).
 
-### Remnawave APIВ `bot/services/remnawave.py` используется эндпоинт `GET /api/users/by-telegram-id/{telegramId}` и поля `status`, `expireAt`, `subscriptionUrl`, `userTraffic.usedTrafficBytes`. При другой схеме API измените клиент и/или `.env`.
+### Remnawave API `bot/services/remnawave.py` используется эндпоинт `GET /api/users/by-telegram-id/{telegramId}` и поля `status`, `expireAt`, `subscriptionUrl`, `userTraffic.usedTrafficBytes`. При другой схеме API измените клиент и/или `.env`.
