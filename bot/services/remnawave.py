@@ -106,13 +106,23 @@ class RemnawaveClient:
             logger.debug("Remnawave API response for tg_id=%s: status=%s, data_type=%s, data=%s", 
                         telegram_user_id, resp.status_code, type(data).__name__, str(data)[:500])
             
-            # Поддержка как списка, так и одного объекта
+            # Поддержка разных форматов ответа API
             users_list = []
             if isinstance(data, list):
+                # Прямой массив пользователей
                 users_list = data
             elif isinstance(data, dict):
-                # Если API вернул один объект вместо списка
-                users_list = [data]
+                # Формат с оберткой {"response": [...]}
+                if "response" in data:
+                    response_data = data["response"]
+                    if isinstance(response_data, list):
+                        users_list = response_data
+                    elif isinstance(response_data, dict):
+                        # Если response - один объект
+                        users_list = [response_data]
+                else:
+                    # Если API вернул один объект пользователя напрямую
+                    users_list = [data]
             else:
                 logger.warning("Remnawave API: unexpected data type %s for tg_id=%s", type(data).__name__, telegram_user_id)
                 return None
