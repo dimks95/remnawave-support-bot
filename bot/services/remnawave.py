@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import math
 from dataclasses import dataclass
 from typing import Any, Iterable
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -93,16 +96,44 @@ class RemnawaveClient:
         Ответ: список пользователей (может быть пустым).
         """
         url = f"{self._base_url}/users/by-telegram-id/{telegram_user_id}"
-        resp = await self._client.get(url, headers=self._headers())
-        if resp.status_code == 404:
-            return None
-        resp.raise_for_status()
-        data = resp.json()
-        if not isinstance(data, list) or not data:
-            return None
+        try:
+            resp = await self._client.get(url, headers=self._headers())
+            if resp.status_code == 404:
+                logger.debug("Remnawave API: user not found (404) for tg_id=%s", telegram_user_id)
+                return None
+            resp.raise_for_status()
+            data = resp.json()
+            logger.debug("Remnawave API response for tg_id=%s: status=%s, data_type=%s, data=%s", 
+                        telegram_user_id, resp.status_code, type(data).__name__, str(data)[:500])
+            
+            # Поддержка как списка, так и одного объекта
+            users_list = []
+            if isinstance(data, list):
+                users_list = data
+            elif isinstance(data, dict):
+                # Если API вернул один объект вместо списка
+                users_list = [data]
+            else:
+                logger.warning("Remnawave API: unexpected data type %s for tg_id=%s", type(data).__name__, telegram_user_id)
+                return None
+            
+            if not users_list:
+                logger.debug("Remnawave API: empty list for tg_id=%s", telegram_user_id)
+                return None
 
-        user = self._pick_best_user([x for x in data if isinstance(x, dict)])  # type: ignore[arg-type]
-        if not user:
+            user = self._pick_best_user([x for x in users_list if isinstance(x, dict)])  # type: ignore[arg-type]
+            if not user:
+                logger.debug("Remnawave API: no valid user dict found for tg_id=%s", telegram_user_id)
+                return None
+            
+            logger.debug("Remnawave API: found user for tg_id=%s: id=%s, status=%s", 
+                        telegram_user_id, user.get("id"), user.get("status"))
+        except httpx.HTTPStatusError as e:
+            logger.error("Remnawave API HTTP error for tg_id=%s: status=%s, response=%s", 
+                        telegram_user_id, e.response.status_code, e.response.text[:200])
+            return None
+        except Exception as e:
+            logger.exception("Remnawave API error for tg_id=%s", telegram_user_id)
             return None
 
         status_raw = str(user.get("status") or "UNKNOWN").upper()
