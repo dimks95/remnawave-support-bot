@@ -19,6 +19,9 @@ class SubscriptionInfo:
     traffic_used_gb: float | None
     days_left: int | None
     user_id: int | None  # ID пользователя в панели
+    username: str | None  # username пользователя в панели
+    description: str | None  # описание/имя пользователя
+    email: str | None  # email пользователя
 
 
 class RemnawaveClient:
@@ -96,15 +99,17 @@ class RemnawaveClient:
         Ответ: список пользователей (может быть пустым).
         """
         url = f"{self._base_url}/users/by-telegram-id/{telegram_user_id}"
+        logger.info("Remnawave API: requesting user data for tg_id=%s, url=%s", telegram_user_id, url)
         try:
             resp = await self._client.get(url, headers=self._headers())
             if resp.status_code == 404:
-                logger.debug("Remnawave API: user not found (404) for tg_id=%s", telegram_user_id)
+                logger.info("Remnawave API: user not found (404) for tg_id=%s", telegram_user_id)
                 return None
             resp.raise_for_status()
             data = resp.json()
-            logger.debug("Remnawave API response for tg_id=%s: status=%s, data_type=%s, data=%s", 
-                        telegram_user_id, resp.status_code, type(data).__name__, str(data)[:500])
+            logger.info("Remnawave API response for tg_id=%s: status=%s, data_type=%s", 
+                        telegram_user_id, resp.status_code, type(data).__name__)
+            logger.debug("Remnawave API response data: %s", str(data)[:1000])
             
             # Поддержка разных форматов ответа API
             users_list = []
@@ -128,16 +133,16 @@ class RemnawaveClient:
                 return None
             
             if not users_list:
-                logger.debug("Remnawave API: empty list for tg_id=%s", telegram_user_id)
+                logger.info("Remnawave API: empty list for tg_id=%s", telegram_user_id)
                 return None
 
             user = self._pick_best_user([x for x in users_list if isinstance(x, dict)])  # type: ignore[arg-type]
             if not user:
-                logger.debug("Remnawave API: no valid user dict found for tg_id=%s", telegram_user_id)
+                logger.info("Remnawave API: no valid user dict found for tg_id=%s", telegram_user_id)
                 return None
             
-            logger.debug("Remnawave API: found user for tg_id=%s: id=%s, status=%s", 
-                        telegram_user_id, user.get("id"), user.get("status"))
+            logger.info("Remnawave API: found user for tg_id=%s: id=%s, status=%s, users_count=%d", 
+                        telegram_user_id, user.get("id"), user.get("status"), len(users_list))
             
             # Обработка данных пользователя
             status_raw = str(user.get("status") or "UNKNOWN").upper()
@@ -171,14 +176,24 @@ class RemnawaveClient:
                 except (TypeError, ValueError):
                     user_id = None
 
-            return SubscriptionInfo(
+            username = user.get("username")
+            description = user.get("description")
+            email = user.get("email")
+
+            result = SubscriptionInfo(
                 status=status,
                 raw_status=status_raw,
                 connection_url=(str(user["subscriptionUrl"]) if user.get("subscriptionUrl") else None),
                 traffic_used_gb=traffic_used_gb,
                 days_left=days_left,
                 user_id=user_id,
+                username=str(username) if username else None,
+                description=str(description) if description else None,
+                email=str(email) if email else None,
             )
+            logger.info("Remnawave API: successfully parsed subscription for tg_id=%s: status=%s, user_id=%s, days_left=%s", 
+                        telegram_user_id, status_raw, user_id, days_left)
+            return result
         except httpx.HTTPStatusError as e:
             logger.error("Remnawave API HTTP error for tg_id=%s: status=%s, response=%s", 
                         telegram_user_id, e.response.status_code, e.response.text[:200])

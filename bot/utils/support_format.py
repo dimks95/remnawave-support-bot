@@ -13,6 +13,21 @@ def format_subscription(info: SubscriptionInfo | None) -> str:
     
     parts: list[str] = []
     
+    # Описание/имя пользователя (если есть)
+    if info.description:
+        # Убираем лишние переносы строк и форматируем
+        desc = info.description.replace("\n", " | ").strip()
+        if desc:
+            parts.append(f"👤 Клиент: {desc}")
+    
+    # Email (если есть)
+    if info.email:
+        parts.append(f"📧 Email: {info.email}")
+    
+    # Username в панели (если есть)
+    if info.username:
+        parts.append(f"🔖 Username: {info.username}")
+    
     # Статус подписки
     if info.raw_status:
         status_emoji = "🟢" if info.status == "active" else "🔴"
