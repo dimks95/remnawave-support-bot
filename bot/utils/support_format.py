@@ -10,13 +10,33 @@ from bot.services.remnawave import SubscriptionInfo
 def format_subscription(info: SubscriptionInfo | None) -> str:
     if info is None:
         return "📡 Панель: данных не найдено"
-    parts: list[str] = [f"📡 Панель: {info.status}"]
+    
+    parts: list[str] = []
+    
+    # Статус подписки
+    if info.raw_status:
+        status_emoji = "🟢" if info.status == "active" else "🔴"
+        parts.append(f"📡 Статус: {status_emoji} {info.raw_status}")
+    else:
+        status_emoji = "🟢" if info.status == "active" else "🔴"
+        parts.append(f"📡 Статус: {status_emoji} {info.status}")
+    
+    # ID пользователя в панели
+    if info.user_id is not None:
+        parts.append(f"🆔 ID панели: {info.user_id}")
+    
+    # Дни до конца подписки
     if info.days_left is not None:
         parts.append(f"⏳ Дней до конца: {info.days_left}")
+    
+    # Использованный трафик
     if info.traffic_used_gb is not None:
         parts.append(f"📊 Трафик: {info.traffic_used_gb:.2f} GB")
+    
+    # Ссылка на подписку
     if info.connection_url:
-        parts.append(f"🔗 Ссылка: {info.connection_url}")
+        parts.append(f"🔗 Подписка: {info.connection_url}")
+    
     return "\n".join(parts)
 
 

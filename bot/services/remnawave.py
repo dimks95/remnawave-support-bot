@@ -11,9 +11,11 @@ import httpx
 @dataclass(slots=True)
 class SubscriptionInfo:
     status: str  # active/expired/unknown
+    raw_status: str | None  # оригинальный статус из API (ACTIVE, EXPIRED, SUSPENDED и т.д.)
     connection_url: str | None
     traffic_used_gb: float | None
     days_left: int | None
+    user_id: int | None  # ID пользователя в панели
 
 
 class RemnawaveClient:
@@ -127,10 +129,19 @@ class RemnawaveClient:
         if used_bytes is not None:
             traffic_used_gb = used_bytes / (1024**3)
 
+        user_id = None
+        if user.get("id") is not None:
+            try:
+                user_id = int(user["id"])
+            except (TypeError, ValueError):
+                user_id = None
+
         return SubscriptionInfo(
             status=status,
+            raw_status=status_raw,
             connection_url=(str(user["subscriptionUrl"]) if user.get("subscriptionUrl") else None),
             traffic_used_gb=traffic_used_gb,
             days_left=days_left,
+            user_id=user_id,
         )
 
