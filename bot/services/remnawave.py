@@ -138,6 +138,47 @@ class RemnawaveClient:
             
             logger.debug("Remnawave API: found user for tg_id=%s: id=%s, status=%s", 
                         telegram_user_id, user.get("id"), user.get("status"))
+            
+            # Обработка данных пользователя
+            status_raw = str(user.get("status") or "UNKNOWN").upper()
+            expire_at = self._parse_dt(user.get("expireAt"))
+            now = dt.datetime.now(dt.timezone.utc)
+
+            is_expired = status_raw != "ACTIVE" or (expire_at is not None and expire_at <= now)
+            status = "expired" if is_expired else "active"
+
+            days_left = None
+            if expire_at is not None:
+                delta = expire_at - now
+                days_left = max(0, int(math.ceil(delta.total_seconds() / 86400)))
+
+            used_bytes = None
+            traffic = user.get("userTraffic")
+            if isinstance(traffic, dict) and traffic.get("usedTrafficBytes") is not None:
+                try:
+                    used_bytes = float(traffic["usedTrafficBytes"])
+                except (TypeError, ValueError):
+                    used_bytes = None
+
+            traffic_used_gb = None
+            if used_bytes is not None:
+                traffic_used_gb = used_bytes / (1024**3)
+
+            user_id = None
+            if user.get("id") is not None:
+                try:
+                    user_id = int(user["id"])
+                except (TypeError, ValueError):
+                    user_id = None
+
+            return SubscriptionInfo(
+                status=status,
+                raw_status=status_raw,
+                connection_url=(str(user["subscriptionUrl"]) if user.get("subscriptionUrl") else None),
+                traffic_used_gb=traffic_used_gb,
+                days_left=days_left,
+                user_id=user_id,
+            )
         except httpx.HTTPStatusError as e:
             logger.error("Remnawave API HTTP error for tg_id=%s: status=%s, response=%s", 
                         telegram_user_id, e.response.status_code, e.response.text[:200])
@@ -145,44 +186,4 @@ class RemnawaveClient:
         except Exception as e:
             logger.exception("Remnawave API error for tg_id=%s", telegram_user_id)
             return None
-
-        status_raw = str(user.get("status") or "UNKNOWN").upper()
-        expire_at = self._parse_dt(user.get("expireAt"))
-        now = dt.datetime.now(dt.timezone.utc)
-
-        is_expired = status_raw != "ACTIVE" or (expire_at is not None and expire_at <= now)
-        status = "expired" if is_expired else "active"
-
-        days_left = None
-        if expire_at is not None:
-            delta = expire_at - now
-            days_left = max(0, int(math.ceil(delta.total_seconds() / 86400)))
-
-        used_bytes = None
-        traffic = user.get("userTraffic")
-        if isinstance(traffic, dict) and traffic.get("usedTrafficBytes") is not None:
-            try:
-                used_bytes = float(traffic["usedTrafficBytes"])
-            except (TypeError, ValueError):
-                used_bytes = None
-
-        traffic_used_gb = None
-        if used_bytes is not None:
-            traffic_used_gb = used_bytes / (1024**3)
-
-        user_id = None
-        if user.get("id") is not None:
-            try:
-                user_id = int(user["id"])
-            except (TypeError, ValueError):
-                user_id = None
-
-        return SubscriptionInfo(
-            status=status,
-            raw_status=status_raw,
-            connection_url=(str(user["subscriptionUrl"]) if user.get("subscriptionUrl") else None),
-            traffic_used_gb=traffic_used_gb,
-            days_left=days_left,
-            user_id=user_id,
-        )
 
