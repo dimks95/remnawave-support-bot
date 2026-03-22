@@ -101,9 +101,9 @@ async def user_my_tickets_button(cq: CallbackQuery, session: AsyncSession) -> No
     ).all()
 
     if not tickets:
-        text = "У тебя пока нет обращений."
+        text = "У вас пока нет обращений."
     else:
-        lines: list[str] = ["Твои обращения (последние 10):"]
+        lines: list[str] = ["Ваши обращения (последние 10):"]
         for t in tickets:
             updated = t.updated_at.astimezone(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
             status = "🟢 open" if t.status == "open" else "⚪️ closed"
@@ -128,11 +128,11 @@ async def user_new_ticket_button(cq: CallbackQuery, state: FSMContext, session: 
     await state.set_state(UserNewTicket.waiting_for_text)
     if cq.message:
         if open_ticket is None:
-            await cq.message.answer("Ок. Опиши проблему одним сообщением — я создам обращение и отправлю в поддержку.")
+            await cq.message.answer("Ок. Опишите проблему одним сообщением — я создам обращение и отправлю в поддержку.")
         else:
             await cq.message.answer(
-                f"У тебя уже есть открытое обращение #{open_ticket.id}.\n"
-                "Напиши сообщение — я отправлю его в поддержку в рамках этого обращения."
+                f"У вас уже есть открытое обращение #{open_ticket.id}.\n"
+                "Напишите сообщение — я отправлю его в поддержку в рамках этого обращения."
             )
 
 
